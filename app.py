@@ -1,19 +1,23 @@
 from flask import Flask, render_template, request
 import speech_recognition as sr
-from transformers import pipeline
 import os
+import requests
 from datetime import datetime
 
 app = Flask(__name__)
 
-# Load model once
-sentiment_analyzer = pipeline(
-    "sentiment-analysis",
-    model="distilbert-base-uncased-finetuned-sst-2-english"
-)
+# HuggingFace API setup
+HF_TOKEN = os.getenv("HF_TOKEN")
+API_URL = "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english"
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
-# 🔥 Emotion history storage
+# Emotion history storage
 emotion_history = []
+
+def query_huggingface(text):
+    payload = {"inputs": text}
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
 
 @app.route("/")
 def home():
@@ -35,32 +39,31 @@ def analyze():
     except:
         text = "Could not understand audio"
 
-    result = sentiment_analyzer(text)[0]
+    # 🔥 Call HuggingFace API instead of local model
+    api_result = query_huggingface(text)[0][0]
+
+    emotion = api_result["label"]
+    score = round(api_result["score"], 2)
 
     os.remove(filepath)
 
-    # 🕒 Capture current minute & second
     current_time = datetime.now().strftime("%M:%S")
+    emotion_value = 1 if emotion == "POSITIVE" else -1
 
-    # Convert emotion to numeric value for chart
-    emotion_value = 1 if result['label'] == "POSITIVE" else -1
-
-    # Save to history
     emotion_history.append({
         "time": current_time,
-        "emotion": result['label'],
-        "score": round(result['score'], 2),
+        "emotion": emotion,
+        "score": score,
         "value": emotion_value
     })
 
     return render_template(
         "index.html",
         text=text,
-        emotion=result['label'],
-        score=round(result['score'], 2),
+        emotion=emotion,
+        score=score,
         history=emotion_history
     )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
