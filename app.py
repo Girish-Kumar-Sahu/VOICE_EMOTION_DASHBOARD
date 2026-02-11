@@ -39,11 +39,17 @@ def analyze():
     except:
         text = "Could not understand audio"
 
-    # 🔥 Call HuggingFace API instead of local model
-    api_result = query_huggingface(text)[0][0]
+    # 🔥 Call HuggingFace API
+    response = query_huggingface(text)
 
-    emotion = api_result["label"]
-    score = round(api_result["score"], 2)
+    # Handle API loading or error responses safely
+    if isinstance(response, dict):
+        emotion = "LOADING"
+        score = 0
+    else:
+        api_result = response[0][0]
+        emotion = api_result["label"]
+        score = round(api_result["score"], 2)
 
     os.remove(filepath)
 
