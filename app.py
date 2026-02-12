@@ -11,6 +11,10 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 API_URL = "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english"
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
+@app.route("/health")
+def health():
+    return "OK"
+
 # Emotion history storage
 emotion_history = []
 
