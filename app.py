@@ -44,7 +44,9 @@ def analyze():
         text = "Could not understand audio"
 
     # 🔥 Call HuggingFace API
+    
     response = query_huggingface(text)
+    print("HF RESPONSE:", response)
 
     # Handle API loading or error responses safely
     if isinstance(response, dict):
