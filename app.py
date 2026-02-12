@@ -2,13 +2,15 @@ from flask import Flask, render_template, request
 import speech_recognition as sr
 import os
 import requests
+import time
 from datetime import datetime
 
 app = Flask(__name__)
 
 # HuggingFace API setup
 HF_TOKEN = os.getenv("HF_TOKEN")
-API_URL = "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english"
+API_URL = "https://router.huggingface.co/hf-inference/models/distilbert-base-uncased-finetuned-sst-2-english"
+
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 @app.route("/health")
@@ -20,8 +22,22 @@ emotion_history = []
 
 def query_huggingface(text):
     payload = {"inputs": text}
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
+    max_retries = 5
+    for attempt in range(max_retries):
+        response = requests.post(API_URL, headers=headers, json=payload)
+        result = response.json()
+        if isinstance(result, list) and len(result) > 0:
+            return result
+        elif isinstance(result, dict) and "error" in result:
+            if "loading" in result["error"].lower() or "model" in result["error"].lower():
+                print(f"Model loading, retrying in 10 seconds... (attempt {attempt+1}/{max_retries})")
+                time.sleep(10)
+                continue
+            else:
+                return result  # Other error
+        else:
+            return result
+    return [{"error": "Model failed to load after retries"}]
 
 @app.route("/")
 def home():
@@ -49,13 +65,16 @@ def analyze():
     print("HF RESPONSE:", response)
 
     # Handle API loading or error responses safely
-    if isinstance(response, dict):
-        emotion = "LOADING"
-        score = 0
-    else:
+    if isinstance(response, list) and len(response) > 0 and "error" not in response[0]:
         api_result = response[0][0]
         emotion = api_result["label"]
         score = round(api_result["score"], 2)
+    elif isinstance(response, list) and len(response) > 0 and "error" in response[0]:
+        emotion = "ERROR"
+        score = 0
+    else:
+        emotion = "LOADING"
+        score = 0
 
     os.remove(filepath)
 
