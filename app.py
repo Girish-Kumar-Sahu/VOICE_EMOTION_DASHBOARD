@@ -58,14 +58,16 @@ def analyze():
     os.remove(filepath)
 
     current_time = datetime.now().strftime("%M:%S")
-    emotion_value = 1 if emotion == "POSITIVE" else -1
+    
+    if emotion in ["POSITIVE", "NEGATIVE"]:
+        emotion_value = 1 if emotion == "POSITIVE" else -1
 
-    emotion_history.append({
-        "time": current_time,
-        "emotion": emotion,
-        "score": score,
-        "value": emotion_value
-    })
+        emotion_history.append({
+            "time": current_time,
+            "emotion": emotion,
+            "score": score,
+            "value": emotion_value
+        })
 
     return render_template(
         "index.html",
