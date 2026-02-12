@@ -20,24 +20,39 @@ def health():
 # Emotion history storage
 emotion_history = []
 
+import time
+
 def query_huggingface(text):
     payload = {"inputs": text}
     max_retries = 5
+
     for attempt in range(max_retries):
         response = requests.post(API_URL, headers=headers, json=payload)
-        result = response.json()
+
+        # 🔥 Safe JSON handling
+        try:
+            result = response.json()
+        except:
+            print("HF RAW RESPONSE:", response.text)
+            return {"error": "Invalid API response"}
+
+        # ✅ If valid prediction list
         if isinstance(result, list) and len(result) > 0:
             return result
+
+        # 🔁 If model still loading
         elif isinstance(result, dict) and "error" in result:
             if "loading" in result["error"].lower() or "model" in result["error"].lower():
                 print(f"Model loading, retrying in 10 seconds... (attempt {attempt+1}/{max_retries})")
                 time.sleep(10)
                 continue
             else:
-                return result  # Other error
+                return result  # Other HF error
+
         else:
             return result
-    return [{"error": "Model failed to load after retries"}]
+
+    return {"error": "Model failed to load after retries"}
 
 @app.route("/")
 def home():
