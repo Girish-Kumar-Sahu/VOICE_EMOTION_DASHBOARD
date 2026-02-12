@@ -9,9 +9,13 @@ app = Flask(__name__)
 
 # HuggingFace API setup
 HF_TOKEN = os.getenv("HF_TOKEN")
+
 API_URL = "https://router.huggingface.co/hf-inference/models/distilbert-base-uncased-finetuned-sst-2-english"
 
-headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+headers = {
+    "Authorization": f"Bearer {HF_TOKEN}",
+    "Content-Type": "application/json"
+}
 
 @app.route("/health")
 def health():
@@ -20,39 +24,42 @@ def health():
 # Emotion history storage
 emotion_history = []
 
-import time
-
+# 🔥 SAFE HF QUERY FUNCTION
 def query_huggingface(text):
     payload = {"inputs": text}
     max_retries = 5
 
     for attempt in range(max_retries):
-        response = requests.post(API_URL, headers=headers, json=payload)
+        response = requests.post(
+            API_URL,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
 
-        # 🔥 Safe JSON handling
         try:
             result = response.json()
         except:
             print("HF RAW RESPONSE:", response.text)
             return {"error": "Invalid API response"}
 
-        # ✅ If valid prediction list
+        # ✅ Correct prediction format
         if isinstance(result, list) and len(result) > 0:
             return result
 
-        # 🔁 If model still loading
+        # 🔁 Model loading handling
         elif isinstance(result, dict) and "error" in result:
             if "loading" in result["error"].lower() or "model" in result["error"].lower():
-                print(f"Model loading, retrying in 10 seconds... (attempt {attempt+1}/{max_retries})")
-                time.sleep(10)
+                print(f"Model loading... retry {attempt+1}")
+                time.sleep(8)
                 continue
             else:
-                return result  # Other HF error
+                return result
 
         else:
             return result
 
-    return {"error": "Model failed to load after retries"}
+    return {"error": "Model failed to load"}
 
 @app.route("/")
 def home():
@@ -74,27 +81,24 @@ def analyze():
     except:
         text = "Could not understand audio"
 
-    # 🔥 Call HuggingFace API
-    
+    # 🔥 Call HF API
     response = query_huggingface(text)
     print("HF RESPONSE:", response)
 
-    # Handle API loading or error responses safely
-    if isinstance(response, list) and len(response) > 0 and "error" not in response[0]:
-        api_result = response[0][0]
-        emotion = api_result["label"]
-        score = round(api_result["score"], 2)
-    elif isinstance(response, list) and len(response) > 0 and "error" in response[0]:
-        emotion = "ERROR"
-        score = 0
+    # ✅ FIXED PARSING (IMPORTANT CHANGE)
+    if isinstance(response, list) and len(response) > 0:
+        api_result = response[0]
+        emotion = api_result.get("label", "ERROR")
+        score = round(api_result.get("score", 0), 2)
     else:
         emotion = "LOADING"
         score = 0
 
-    os.remove(filepath)
+    if os.path.exists(filepath):
+        os.remove(filepath)
 
     current_time = datetime.now().strftime("%M:%S")
-    
+
     if emotion in ["POSITIVE", "NEGATIVE"]:
         emotion_value = 1 if emotion == "POSITIVE" else -1
 
