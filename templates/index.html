@@ -55,23 +55,100 @@
         button:hover{
             background:#0056b3;
         }
+
+        button:disabled{
+            background:#ccc;
+            cursor:not-allowed;
+        }
+
+        /* Loading Spinner Styles */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px auto;
+            width: 70%;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px auto;
+            width: 70%;
+            border: 1px solid #c3e6cb;
+        }
     </style>
 </head>
 <body>
 
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div style="text-align:center;">
+        <div class="spinner"></div>
+        <div class="loading-text">Analyzing audio...<br><small>This may take up to 30 seconds</small></div>
+    </div>
+</div>
+
 <h1>🎙️ Voice Emotion Monitoring Dashboard</h1>
 
 <div class="card">
-<form action="/analyze" method="POST" enctype="multipart/form-data">
-    <input type="file" name="audio" accept=".wav" required>
+<form action="/analyze" method="POST" enctype="multipart/form-data" id="analyzeForm">
+    <input type="file" name="audio" accept=".wav" required id="audioFile">
     <br><br>
-    <button type="submit">Analyze Emotion</button>
+    <button type="submit" id="submitBtn">Analyze Emotion</button>
 </form>
 
 <p class="upload-note">
 ⚠️ Please upload only PCM WAV (.wav) audio files for accurate processing.
 </p>
 </div>
+
+{% if error %}
+<div class="error-message">
+    <strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
 
 {% if emotion %}
 <div class="card">
