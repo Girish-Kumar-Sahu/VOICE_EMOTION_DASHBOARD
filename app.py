@@ -15,8 +15,10 @@ API_URL = "https://api-inference.huggingface.co/models/distilbert-base-uncased-f
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
+    "Accept": "application/json"
 }
+
 
 @app.route("/health")
 def health():
