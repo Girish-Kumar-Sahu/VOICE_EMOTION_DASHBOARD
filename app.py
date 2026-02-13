@@ -16,21 +16,32 @@ def health():
 def home():
     return render_template("index.html", history=emotion_history)
 
-# 🔥 FAST STABLE SENTIMENT API
 def analyze_sentiment(text):
     url = "https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment-latest"
     response = requests.post(url, json={"inputs": text})
+
     try:
         data = response.json()
-        if isinstance(data, list):
-            # Convert to POSITIVE / NEGATIVE
-            label = data[0][0]["label"].upper()
-            score = round(data[0][0]["score"], 2)
-            return label, score
-    except:
-        pass
+
+        # HF returns nested list
+        if isinstance(data, list) and len(data) > 0:
+            top = max(data[0], key=lambda x: x["score"])
+            label = top["label"]
+            score = round(top["score"], 2)
+
+            # 🔥 Convert LABEL_* to POSITIVE/NEGATIVE
+            if label == "LABEL_2":
+                return "POSITIVE", score
+            elif label == "LABEL_0":
+                return "NEGATIVE", score
+            else:
+                return "NEUTRAL", score
+
+    except Exception as e:
+        print("Sentiment error:", e)
 
     return "LOADING", 0
+
 
 
 @app.route("/analyze", methods=["POST"])
