@@ -2,4 +2,4 @@ flask
 SpeechRecognition
 gunicorn
 requests
-
+torch
