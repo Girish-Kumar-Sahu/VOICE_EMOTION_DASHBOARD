@@ -1,48 +1,23 @@
 from flask import Flask, render_template, request
 import speech_recognition as sr
+from transformers import pipeline
 import os
-import requests
 from datetime import datetime
 
 app = Flask(__name__)
 
-emotion_history = []
+# Load model once
+sentiment_analyzer = pipeline(
+    "sentiment-analysis",
+    model="distilbert-base-uncased-finetuned-sst-2-english"
+)
 
-@app.route("/health")
-def health():
-    return "OK"
+# 🔥 Emotion history storage
+emotion_history = []
 
 @app.route("/")
 def home():
     return render_template("index.html", history=emotion_history)
-
-def analyze_sentiment(text):
-    url = "https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment-latest"
-    response = requests.post(url, json={"inputs": text})
-
-    try:
-        data = response.json()
-
-        # HF returns nested list
-        if isinstance(data, list) and len(data) > 0:
-            top = max(data[0], key=lambda x: x["score"])
-            label = top["label"]
-            score = round(top["score"], 2)
-
-            # 🔥 Convert LABEL_* to POSITIVE/NEGATIVE
-            if label == "LABEL_2":
-                return "POSITIVE", score
-            elif label == "LABEL_0":
-                return "NEGATIVE", score
-            else:
-                return "NEUTRAL", score
-
-    except Exception as e:
-        print("Sentiment error:", e)
-
-    return "LOADING", 0
-
-
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
@@ -60,29 +35,31 @@ def analyze():
     except:
         text = "Could not understand audio"
 
-    emotion, score = analyze_sentiment(text)
+    result = sentiment_analyzer(text)[0]
 
-    if os.path.exists(filepath):
-        os.remove(filepath)
+    os.remove(filepath)
 
+    # 🕒 Capture current minute & second
     current_time = datetime.now().strftime("%M:%S")
 
-    if emotion in ["POSITIVE", "NEGATIVE"]:
-        emotion_value = 1 if emotion == "POSITIVE" else -1
-        emotion_history.append({
-            "time": current_time,
-            "emotion": emotion,
-            "score": score,
-            "value": emotion_value
-        })
+    # Convert emotion to numeric value for chart
+    emotion_value = 1 if result['label'] == "POSITIVE" else -1
+
+    # Save to history
+    emotion_history.append({
+        "time": current_time,
+        "emotion": result['label'],
+        "score": round(result['score'], 2),
+        "value": emotion_value
+    })
 
     return render_template(
         "index.html",
         text=text,
-        emotion=emotion,
-        score=score,
+        emotion=result['label'],
+        score=round(result['score'], 2),
         history=emotion_history
     )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(debug=True)
